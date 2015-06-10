@@ -2,8 +2,8 @@
 
 class regonline{
 
-    private $uname = "chuckpeterson";
-    private $pass = "pw5siWKFAIVD";
+    private $uname = "me";
+    private $pass = "pass";
     private $auth_token = false;
     private $api_url = 'https://www.regonline.com/api/default.asmx/';
 
