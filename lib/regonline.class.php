@@ -19,7 +19,7 @@ class regonline{
     }
 
     public function get_events($filter='',$order_by=''){
-        return $this->callUrl('GetEvent','filter='.$filter.'&orderBy='.$order_by);
+        return $this->callUrl('GetEvents','filter='.$filter.'&orderBy='.$order_by);
     }
 
     public function get_future_events($filter='',$order_by='StartDate DESC'){
@@ -32,7 +32,10 @@ class regonline{
 
     private function authenticate(){
         $result = $this->curlIt('Login','username=' . urlencode($this->uname) . '&password=' . urlencode($this->pass));
-        $this->auth_token = $result['message']->Data[0]->APIToken;
+        if(!empty($result['message']->Success) && !empty($result['message']->Data->APIToken)){
+            $this->auth_token = $result['message']->Data->APIToken;
+        }
+        return false;
     }
 
     /**
@@ -40,17 +43,18 @@ class regonline{
      * @param $params http://curl.haxx.se/libcurl/c/CURLOPT_POSTFIELDS.html
      * @return array( 'success'=> boolean, 'message' => string | array )
      */
-    private function callUrl($url,$params){
-        if(!$this->auth_token){
+    private function callUrl($url,$params) {
+        if(!$this->auth_token) {
             $this->authenticate();
-            if(!$this->auth_token){
+            if(!$this->auth_token) {
                 return false;
             }
         }
         return $this->curlIt($url,$params);
     }
 
-    private function curlIt($url,$params){
+    private function curlIt($url,$params) {
+        echo $this->api_url.$url."\n";
         $ch = curl_init($this->api_url.$url);
         curl_setopt($ch, CURLOPT_POSTFIELDS,  $params);
         curl_setopt($ch, CURLOPT_POST, 1);
@@ -59,8 +63,7 @@ class regonline{
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
         curl_setopt($ch, CURLOPT_SSL_CIPHER_LIST, 'TLSv1');
         $xml_response = curl_exec($ch);
-        if( ! $xml_response = curl_exec($ch))
-        {
+        if( !$xml_response ) {
             trigger_error(curl_error($ch));
         } else {
             $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
