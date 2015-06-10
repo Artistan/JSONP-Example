@@ -1,75 +1,198 @@
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-    <title>JSONP Test Page</title>
-    <style type="text/css"> 
-        body,html
-        {
-            font-family:Helvetica,Arial,Tahoma;
-            color:#333;
-            padding:10px;
-        }
-        
-        a, a:visited, a:link, a:hover {color:#003E7E;}
-        
-        #results 
-        {
-            border:solid 1px #999;
-            border-radius:5px;
-            box-shadow:5px 5px 5px #ccc;
-            display:none;
-            padding:10px;
-            background-color:#efefef;
-        }
-        #results h3
-        {
-            margin:3px 0px;
-        }
+<!DOCTYPE html>
+<html lang="en">
+    <title>Roadshow Registrations</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet">
+
+    <style type="text/css">
     </style>
 </head>
 <body>
+    <nav class="navbar navbar-default">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="#">RegOnline Roadshow Registrations</a>
+            </div>
+            <ul class="nav navbar-nav">
+                <li><a id="action" href="#">Call the GetPublicEvents API method</a></li>
+                <li><a id="action2" href="#">Call the GetEvents API method</a></li>
+                <li><a id="action3" href="#">Call the GetEventsCountsList</a></li>
+            </ul>
+        </div><!-- /.container-fluid -->
+    </nav>
+    <div class="container">
+        <div class="row">
+            <h3>Registrations</h3>
+            <div id="results" class=".col-md-6 .col-md-offset-3">
 
-    <h2>JSONP Test Page</h2>
-
-    <p>This is a sample page that illustrates making a JSON ajax call to the RegOnline API going across domains.</p>
-
-    <p>
-        <a id="action" href="#">Call the GetPublicEvents API method</a>
-    </p>
-
-    <div id="results">
-        <h3>Results</h3>
+            </div>
+        </div>
     </div>
 
-    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
     <script type="text/javascript">
 
         var apiToken;
-        $(function () {
-            $('a#action').click(function () {
+        jQuery(function () {
+            jQuery('a#action').click(function () {
                 if (!apiToken) {
-                    // no API token, login first
-                    $.ajax(
-                    {
-                        url: 'https://www.regonline.com/api/default.asmx/Login',
-                        dataType: 'jsonp',
-                        data:
-                        {
-                            username: JSON.stringify('<USERNAME>'), // Update with your username
-                            password: JSON.stringify('<PASSWORD>') // Update with your password
-                        },
-                        success: function (response) {
-                            if (response.d.Data.Success) {
-                                apiToken = response.d.Data.APIToken;
-                                GetPublicEvents();
-                            }
-                        }
-                    });
+                    GetKey(GetPublicEvents);
                 }
                 else {
                     GetPublicEvents();
                 }
             });
+            jQuery('a#action2').click(function () {
+                if (!apiToken) {
+                    GetKey(GetEvents);
+                }
+                else {
+                    GetEvents();
+                }
+            });
+            jQuery('a#action3').click(function () {
+                if (!apiToken) {
+                    GetKey(GetEventsCountsList);
+                }
+                else {
+                    GetEventsCountsList();
+                }
+            });
+            jQuery('body').delegate('a.event','click',function () {
+                jQuery('div#results').empty().append('<ul class="list-group"></ul>');
+                if (!apiToken) {
+                    GetKey(function(){GetEvent(this.id)});
+                } else {
+                    GetEvent(this.id);
+                }
+            });
         });
+
+        function GetKey(callbackFunction){
+            // no API token, login first
+            $.ajax(
+                    {
+                        url: 'https://www.regonline.com/api/default.asmx/Login',
+                        dataType: 'jsonp',
+                        data:
+                        {
+                            username: JSON.stringify('chuckpeterson'), // Update with your username
+                            password: JSON.stringify('pw5siWKFAIVD') // Update with your password
+                        },
+                        success: function (response) {
+                            if (response.d.Data.Success) {
+                                apiToken = response.d.Data.APIToken;
+                                callbackFunction();
+                            }
+                        }
+                    });
+        }
+
+        function GetEventsCountsList() {
+            if (!apiToken) return;
+
+            $.ajax(
+                    {
+                        url: 'https://www.regonline.com/api/default.asmx/GetEvents',
+                        dataType: 'jsonp',
+                        data:
+                        {
+                            filter: JSON.stringify('StartDate >= DateTime.Now'),
+                            orderBy: JSON.stringify('StartDate DESC'),
+                            APIToken: encodeURI(apiToken)
+                        },
+                        success: function (response) {
+                            if (response.d.Success) {
+                                jQuery('div#results').empty().append('<ul class="list-group"></ul>');
+                                for (var i = 0; i < response.d.Data.length; i++) {
+
+                                    var e = response.d.Data[i];
+                                    GetEvent(e.ID);
+                                }
+                            }
+                            else alert(response.d.Message);
+                        }
+                    });
+        }
+
+        function GetEvent(id) {
+            if (!apiToken) return;
+            $.ajax(
+                    {
+                        url: 'https://www.regonline.com/api/default.asmx/GetEvent',
+                        dataType: 'jsonp',
+                        data:
+                        {
+                            eventID: id,
+                            APIToken: encodeURI(apiToken)
+                        },
+                        success: function (response) {
+                            if (response.d.Success) {
+                                var e = response.d.Data[0];
+                                jQuery('div#results .list-group').append("<li id='event"+e.ID+"' class='event list-group-item'>" +
+                                                                "<a class='event' href='#'>" + e.Title + '</a> - ' + e.LocationName + ' - <span class="badge count"></span>' +
+                                                            '</li>');
+                                jQuery('div#results').show();
+                                GetRegistrationsForEvent(e.ID);
+                            }
+                            else alert(response.d.Message);
+                        }
+                    });
+        }
+
+        function GetRegistrationsForEvent(id) {
+            if (!apiToken) return;
+            $.ajax(
+                    {
+                        url: 'https://www.regonline.com/api/default.asmx/GetRegistrationsForEvent',
+                        dataType: 'jsonp',
+                        data:
+                        {
+                            eventID: id,
+                            filter: JSON.stringify('StatusDescription="Confirmed"'),
+                            orderBy: JSON.stringify(''),
+                            APIToken: encodeURI(apiToken)
+                        },
+                        success: function (response) {
+                            jQuery('li#event'+id+'.event span.count').empty();
+                            if (response.d.Success) {
+                                console.log(response.d.Data);
+                                jQuery('li#event'+id+'.event span.count').append(response.d.Data.length);
+                            }
+                            else alert(response.d.Message);
+                        }
+                    });
+        }
+
+        function GetEvents() {
+            if (!apiToken) return;
+
+            $.ajax(
+                    {
+                        url: 'https://www.regonline.com/api/default.asmx/GetEvents',
+                        dataType: 'jsonp',
+                        data:
+                        {
+                            filter: JSON.stringify('StartDate >= DateTime.Now'),
+                            orderBy: JSON.stringify('StartDate DESC'),
+                            APIToken: encodeURI(apiToken)
+                        },
+                        success: function (response) {
+                            if (response.d.Success) {
+                                jQuery('div#results').empty().append('<ul class="list-group"></ul>');
+                                for (var i = 0; i < response.d.Data.length; i++) {
+                                    var e = response.d.Data[i];
+                                    var startDate = e.StartDate ? new Date(parseInt(e.StartDate.replace(/[^\d]/g, ''))) : '';
+                                    jQuery('div#results .list-group').append("<li class='list-group-item'><a class='event' id='"+e.ID+"' href='#'>" + e.Title + '</a> - ' + startDate + '</li>');
+                                    jQuery('div#results').show();
+                                }
+                            }
+                            else alert(response.d.Message);
+                        }
+                    });
+        }
 
         function GetPublicEvents() {
             if (!apiToken) return;
@@ -86,12 +209,12 @@
                 },
                 success: function (response) {
                     if (response.d.Success) {
-                        
+                        jQuery('div#results').empty().append('<ul class="list-group"></ul>');
                         for (var i = 0; i < response.d.Data.length; i++) {
                             var e = response.d.Data[i];
                             var startDate = e.StartDate ? new Date(parseInt(e.StartDate.replace(/[^\d]/g, ''))) : '';
-                            $('div#results').append("<div><a target='_blank' href='https://www.regonline.com/" + e.ID + "'>" + e.Title + '</a> - ' + startDate + '</div>');
-                            $('div#results').show();
+                            jQuery('div#results .list-group').append("<li class='list-group-item'><a class='event' id='"+e.ID+"' href='#'>" + e.Title + '</a> - ' + startDate + '</li>');
+                            jQuery('div#results').show();
                         }
                     }
                     else alert(response.d.Message);

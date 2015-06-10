@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<title>Roadshow Registrations</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet">
+
+<style type="text/css">
+    .count{
+        font-size: 500px;
+    }
+</style>
+</head>
+<body>
+<nav class="navbar navbar-default">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <a class="navbar-brand" href="#">BrokerBin Roadshows</a>
+        </div>
+        <ul class="nav navbar-nav">
+            <li><a id="action2" href="#">Refresh</a></li>
+        </ul>
+    </div><!-- /.container-fluid -->
+</nav>
+<div class="container">
+    <div class="row">
+        <h3>Events</h3>
+        <div id="results" class=".col-md-6 .col-md-offset-3">
+
+        </div>
+    </div>
+</div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script type="text/javascript">
+
+    var apiToken;
+    jQuery(function () {
+        jQuery('a#action2').click(function () {
+            refreshEvents();
+        });
+        jQuery('body').delegate('a.event','click',function () {
+            jQuery('div#results').empty().append('<ul class="list-group"></ul>');
+            if (!apiToken) {
+                GetKey(function(){GetEvent(this.id)});
+            } else {
+                GetEvent(this.id);
+            }
+        });
+        if (!apiToken) {
+            GetKey(GetEventsCountsList);
+        }
+        else {
+            GetEventsCountsList();
+        }
+    });
+
+    function GetKey(callbackFunction){
+        // no API token, login first
+        $.ajax(
+                {
+                    url: 'https://www.regonline.com/api/default.asmx/Login',
+                    dataType: 'jsonp',
+                    data:
+                    {
+                        username: JSON.stringify('chuckpeterson'), // Update with your username
+                        password: JSON.stringify('pw5siWKFAIVD') // Update with your password
+                    },
+                    success: function (response) {
+                        if (response.d.Data.Success) {
+                            apiToken = response.d.Data.APIToken;
+                            callbackFunction();
+                        }
+                    }
+                });
+    }
+
+    function GetEventsCountsList() {
+        if (!apiToken) return;
+
+        $.ajax(
+                {
+                    url: 'https://www.regonline.com/api/default.asmx/GetEvents',
+                    dataType: 'jsonp',
+                    data:
+                    {
+                        filter: JSON.stringify('StartDate >= DateTime.Now'),
+                        orderBy: JSON.stringify('StartDate DESC'),
+                        APIToken: encodeURI(apiToken)
+                    },
+                    success: function (response) {
+                        if (response.d.Success) {
+                            jQuery('#results').empty().append('<ul class="list-group"></ul>');
+                            for (var i = 0; i < response.d.Data.length; i++) {
+
+                                var e = response.d.Data[i];
+                                GetEvent(e.ID);
+                            }
+                        }
+                        else alert(response.d.Message);
+                    }
+                });
+    }
+
+    function refreshEvents(){
+        $( ".event" ).each(function(){
+            var event = jQuery(this).data( "uniqueid" );
+            GetRegistrationsForEvent(event);
+        })
+    }
+
+    function GetEvent(id) {
+        if (!apiToken) return;
+        $.ajax(
+                {
+                    url: 'https://www.regonline.com/api/default.asmx/GetEvent',
+                    dataType: 'jsonp',
+                    data:
+                    {
+                        eventID: id,
+                        APIToken: encodeURI(apiToken)
+                    },
+                    success: function (response) {
+                        if (response.d.Success) {
+                            var e = response.d.Data[0];
+                            var startDate = e.StartDate ? new Date(parseInt(e.StartDate.replace(/[^\d]/g, ''))) : '';
+                            jQuery('#results .list-group').append("<div data-uniqueid='"+e.ID+"' id='event"+e.ID+"' class='event panel panel-primary'>" +
+                                '<div class="panel-heading">' +
+
+                                    '<div class="row">' +
+                                        '<div class="title col-md-4">' + e.Title + '</div>' +
+                                        '<div class="title col-md-4 text-center">' + '' + (startDate.getMonth() + 1) + "/" + (startDate.getDate()+1) + "/" + startDate.getFullYear() + '' + '</div>' +
+                                        '<div class="location col-md-4 text-right">' + e.LocationName + '</div>'+
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="panel-body">' +
+                                    '<div class="row">' +
+                                        '<h1 class="count col-md-12 text-center"></h1>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="panel-footer">' +
+                                    '<div class="row">' +
+                                        '<div class="title col-md-6">' +
+                                            '<button type="button" class="btn btn-primary">Today: <span class="reg-today badge"></span></button>' +
+                                        '</div>' +
+                                        '<div class="location col-md-6 text-right">' +
+                                            '<button type="button" class="btn btn-primary">Recent: <span class="reg-recent badge"></span></button>' +
+                                        '</div>'+
+                                    '</div>' +
+                                '</div>' +
+                            '</div>');
+                            jQuery('div#results').show();
+                            GetRegistrationsForEvent(e.ID);
+                        }
+                        else alert(response.d.Message);
+                    }
+                });
+    }
+
+    function GetRegistrationsForEvent(id) {
+        if (!apiToken) return;
+        // count of registrations for event. confirmed
+        $.ajax(
+                {
+                    url: 'https://www.regonline.com/api/default.asmx/GetRegistrationsForEvent',
+                    dataType: 'jsonp',
+                    data:
+                    {
+                        eventID: id,
+                        filter: JSON.stringify('StatusDescription="Confirmed"'),
+                        orderBy: JSON.stringify('AddDate DESC'),
+                        APIToken: encodeURI(apiToken)
+                    },
+                    success: function (response) {
+                        jQuery('#event'+id+'.event .count').empty();
+                        if (response.d.Success) {
+                            console.log(response.d.Data);
+                            var regCount = response.d.Data.length;
+                            var regToday = 0;
+                            jQuery('#event'+id+'.event .count').append(regCount);
+                            if(regCount){
+                                var regRecent = response.d.Data[0];
+                                var regRecentAddDate = regRecent.AddDate ? new Date(parseInt(regRecent.AddDate.replace(/[^\d]/g, ''))) : '';
+                                var twty4hours = new Date(new Date().getTime() - (24 * 60 * 60 * 1000));
+                                jQuery('#event'+id+'.event .reg-recent').html('' + regRecent.FirstName + ' @ ' + regRecent.Company + ' [' + (regRecentAddDate.getMonth() + 1) + "/" + (regRecentAddDate.getDate()+1) + "/" + regRecentAddDate.getFullYear() + ']');
+                                jQuery.each(response.d.Data,function(i,v){
+
+                                    var addDate = v.AddDate ? new Date(parseInt(v.AddDate.replace(/[^\d]/g, ''))) : '';
+                                    if(addDate.getTime() > twty4hours.getTime()){
+                                        regToday++;
+                                    }
+                                });
+                                jQuery('#event'+id+'.event .reg-today').html('' + regToday);
+                            }
+                        }
+                        else alert(response.d.Message);
+                    }
+                });
+    }
+
+</script>
+
+</body>
+</html>
